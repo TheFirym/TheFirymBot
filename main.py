@@ -86,17 +86,19 @@ async def server_version(update: Update, context: CallbackContext):
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
     start_message = (
-        "Ку! Я помощник майнкрафт сервера TheFirym\n\n"
-        "Доступные команды:\n"
+        "=================================================\n"
+        "🟧 Привет ! Я помощник Майнкрафт сервера TheFirym.\n\n"
+        "*Доступные команды:*\n"
         "/status - Проверить статус сервера\n"
         "/online - Список игроков онлайн\n"
         "/players - Состав сервера\n"
         "/ip - Показать IP сервера\n"
         "/version - Показать версию сервера\n"
         "/join - Присоединиться к нашему серверу Minecraft\n"
-        "/rules - Правила сервера"
+        "/rules - Правила сервера\n"
+        "================================================="
     )
-    await update.message.reply_text(start_message)
+    await update.message.reply_text(start_message, parse_mode='MarkdownV2')
 
 # Команда получения списка админов и модераторов
 async def staff(update: Update, context: CallbackContext):
