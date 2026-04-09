@@ -88,7 +88,7 @@ async def start_command(update: Update, context: CallbackContext):
     start_message = (
         "=================================================\n"
         "🟧 Привет ! Я помощник Майнкрафт сервера TheFirym.\n\n"
-        "*Доступные команды:*\n"
+        "<b>Доступные команды:</b>\n"
         "/status - Проверить статус сервера\n"
         "/online - Список игроков онлайн\n"
         "/players - Состав сервера\n"
@@ -98,7 +98,7 @@ async def start_command(update: Update, context: CallbackContext):
         "/rules - Правила сервера\n"
         "================================================="
     )
-    await update.message.reply_text(start_message, parse_mode='MarkdownV2')
+    await update.message.reply_text(start_message, parse_mode='HTML')
 
 # Команда получения списка админов и модераторов
 async def staff(update: Update, context: CallbackContext):
