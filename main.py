@@ -31,7 +31,7 @@ def check_server_status():
         response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
         if data.get('online'):
-            player_info = f"<b>Игроков:</b> {data['players']['online']}/{data['players']['max']}"
+            player_info = f"Игроков: {data['players']['online']}/{data['players']['max']}"
             message = f"=================================================\n🟧 {player_info}\n================================================="
             return message
         else:
@@ -47,9 +47,9 @@ def get_player_list():
         data = response.json()
         if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
             players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
-            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
+            return f"=================================================\n🟧 Игроки онлайн: {players}\n================================================="
         else:
-            return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
+            return "=================================================\n🟧 Никто не играет сейчас.\n================================================="
     except Exception as e:
         logger.error(f"Ошибка при получении списка игроков: {e}")
         return "Не удалось получить список игроков."
