@@ -39,6 +39,8 @@ def check_server_status():
     except Exception as e:
         logger.error(f"Ошибка при получении статуса сервера: {e}")
         return "Не удалось получить данные о сервере."
+        
+await update.message.reply_text(check_server_status(), parse_mode='HTML')
 
 # Получение списка игроков
 def get_player_list():
@@ -53,6 +55,8 @@ def get_player_list():
     except Exception as e:
         logger.error(f"Ошибка при получении списка игроков: {e}")
         return "Не удалось получить список игроков."
+
+await update.message.reply_text(get_player_list(), parse_mode='HTML')
 
 # Команда проверки статуса сервера
 async def status(update: Update, context: CallbackContext):
