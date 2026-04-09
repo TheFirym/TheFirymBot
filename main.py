@@ -74,11 +74,6 @@ async def players_online(update: Update, context: CallbackContext):
     log_user(update)
     await update.message.reply_text(get_player_list(), parse_mode='HTML')
 
-# Команда проверки статуса сервера
-async def status(update: Update, context: CallbackContext):
-    log_user(update)
-    await update.message.reply_text(check_server_status())
-
 # Команда старт
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
