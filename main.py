@@ -58,13 +58,18 @@ def get_player_list():
 async def status(update: Update, context: CallbackContext):
     log_user(update)
     await update.message.reply_text(check_server_status())
-    
+
+# Команда получения списка игроков
+async def players(update: Update, context: CallbackContext):
+    log_user(update)
+    await update.message.reply_text(get_player_list())
+
 # Команда старт
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
     start_message = (
         "=================================================\n"
-        "🟧 Привет ! Я помощник Майнкрафт сервера TheFirym.\n\n"
+        "🟧 Привет! Я помощник Майнкрафт сервера TheFirym.\n\n"
         "<b>Доступные команды:</b>\n"
         "/status - Проверить статус сервера\n"
         "/online - Список игроков онлайн\n"
@@ -78,7 +83,6 @@ app = Application.builder().token(TOKEN).build()
 # Добавление команд
 app.add_handler(CommandHandler("status", status))
 app.add_handler(CommandHandler("online", players))
-app.add_handler(CommandHandler("players", staff))
 app.add_handler(CommandHandler("start", start_command))
 
 if __name__ == "__main__":
