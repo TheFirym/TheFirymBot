@@ -35,19 +35,10 @@ def check_server_status():
             message = f"=================================================\n🟧 {player_info}\n================================================="
             return message
         else:
-            offline_message = "<b>Сервер оффлайн.</b>"
-            message = f"=================================================\n🟧 {offline_message}\n================================================="
-            return message
+            return "Сервер оффлайн."
     except Exception as e:
         logger.error(f"Ошибка при получении статуса сервера: {e}")
-        error_message = "<b>Не удалось получить данные о сервере.</b>"
-        message = f"=================================================\n🟧 {error_message}\n================================================="
-        return message
-
-# Команда проверки статуса сервера
-async def status(update: Update, context: CallbackContext):
-    log_user(update)
-    await update.message.reply_text(check_server_status(), parse_mode='HTML')
+        return "Не удалось получить данные о сервере."
 
 # Получение списка игроков
 def get_player_list():
@@ -56,23 +47,22 @@ def get_player_list():
         data = response.json()
         if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
             players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
-            online_message = f"<b>Игроки онлайн:</b> {players}"
-            message = f"=================================================\n🟧 {online_message}\n================================================="
-            return message
+            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
         else:
-            no_players_message = "<b>Никто не играет сейчас.</b>"
-            message = f"=================================================\n🟧 {no_players_message}\n================================================="
-            return message
+            return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
     except Exception as e:
         logger.error(f"Ошибка при получении списка игроков: {e}")
-        error_message = "<b>Не удалось получить список игроков.</b>"
-        message = f"=================================================\n🟧 {error_message}\n================================================="
-        return message
+        return "Не удалось получить список игроков."
+
+# Команда проверки статуса сервера
+async def status(update: Update, context: CallbackContext):
+    log_user(update)
+    await update.message.reply_text(check_server_status())
 
 # Команда получения списка игроков
-async def players_online(update: Update, context: CallbackContext):
+async def players(update: Update, context: CallbackContext):
     log_user(update)
-    await update.message.reply_text(get_player_list(), parse_mode='HTML')
+    await update.message.reply_text(get_player_list())
 
 # Команда старт
 async def start_command(update: Update, context: CallbackContext):
