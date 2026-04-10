@@ -90,10 +90,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    except ImportError:
-        pass
     logger.info("Запуск бота...")
     asyncio.run(main())
