@@ -4,10 +4,13 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 import requests
 import asyncio
 import resource
-import time
+import sys
 
 # Установим лимит памяти в 200 МБ (можно изменить)
-resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
+try:
+    resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
+except (ValueError, OSError):
+    logging.warning("Could not set memory limit.")
 
 # Настройки
 TOKEN = "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
@@ -77,13 +80,25 @@ async def start_command(update: Update, context: CallbackContext):
     )
     await update.message.reply_text(start_message, parse_mode='HTML')
 
-# Создание приложения бота
-app = Application.builder().token(TOKEN).build()
+async def main():
+    # Создание приложения бота
+    app = Application.builder().token(TOKEN).build()
 
-# Добавление команд
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("online", players))
-app.add_handler(CommandHandler("start", start_command))
+    # Добавление команд
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("online", players))
+    app.add_handler(CommandHandler("start", start_command))
+
+    logger.info("Запуск бота...")
+
+    try:
+        # Запуск polling с очисткой старых обновлений
+        await app.run_polling(drop_pending_updates=True)
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен пользователем.")
+    except Exception as e:
+        logger.error(f"Ошибка в polling: {e}")
+        raise  # Перебросить исключение выше, если нужно
 
 if __name__ == "__main__":
     try:
@@ -92,14 +107,8 @@ if __name__ == "__main__":
     except ImportError:
         pass  # uvloop не установлен
 
-    logger.info("Запуск бота...")
-
-    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
-    while True:
-        try:
-            # drop_pending_updates=True сбрасывает накопленные обновления при старте
-            app.run_polling(drop_pending_updates=True)
-        except Exception as e:
-            logger.error(f"Ошибка в polling: {e}")
-            # Если произошла ошибка, делаем паузу перед перезапуском
-            time.sleep(10)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Остановлено.")
+        sys.exit(0)
