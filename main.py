@@ -1,139 +1,105 @@
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackContext
 import requests
 import asyncio
-# import resource # Удалено
-# import time # Удалено
-# import uvloop # Удалено
+import resource
+import time
 
-# --- Настройки ---
+# Установим лимит памяти в 200 МБ (можно изменить)
+resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
+
+# Настройки
 TOKEN = "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
 SERVER_IP = "213.152.43.73"
 SERVER_PORT = 25620
 
-# --- Настройка логирования ---
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Настройка логирования
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger()
 
+# Функция для логирования пользователей
 def log_user(update: Update):
-    if update.effective_message:
-        user = update.effective_user
-        username = user.username or user.first_name or "Unknown"
-        command_text = update.effective_message.text or "No text command"
-        logger.info(f"Command from {username} (ID: {user.id}): {command_text}")
+    if update.message:
+        user = update.message.from_user
+        username = user.username if user.username else user.first_name
+        logger.info(f"Команда от {username}: {update.message.text}")
 
+# Проверка статуса сервера
 def check_server_status():
     try:
-        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}", timeout=10)
-        response.raise_for_status()
+        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
-        
         if data.get('online'):
-            online_count = data['players']['online']
-            max_count = data['players']['max']
-            player_info = f"{online_count}/{max_count}"
-            message = f"=================================================\n🟧 <b>Игроков:</b> {player_info}\n================================================="
+            player_info = f"<b>Игроков:</b> {data['players']['online']}/{data['players']['max']}"
+            message = f"=================================================\n🟧 {player_info}\n================================================="
             return message
         else:
             return "Сервер оффлайн."
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка HTTP при получении статуса сервера: {e}")
-        return "Не удалось подключиться к API сервера."
-    except ValueError:
-        logger.error("Ошибка при разборе JSON ответа от API сервера.")
-        return "Получен некорректный ответ от API сервера."
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении статуса сервера: {e}")
+        logger.error(f"Ошибка при получении статуса сервера: {e}")
         return "Не удалось получить данные о сервере."
 
+# Получение списка игроков
 def get_player_list():
     try:
-        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}", timeout=10)
-        response.raise_for_status()
+        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
-        
         if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
-            player_list = data['players'].get('list', [])
-            if player_list:
-                 players_str = ", ".join(player_list)
-                 message = f"=================================================\n🟧 <b>Игроки онлайн:</b> {players_str}\n================================================="
-            else:
-                message = "=================================================\n🟧 <b>Игроки скрыты.</b>\n================================================="
-            return message
+            players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
+            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
         else:
             return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка HTTP при получении списка игроков: {e}")
-        return "Не удалось подключиться к API сервера."
-    except ValueError:
-        logger.error("Ошибка при разборе JSON ответа от API сервера (список игроков).")
-        return "Получен некорректный ответ от API сервера."
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении списка игроков: {e}")
+        logger.error(f"Ошибка при получении списка игроков: {e}")
         return "Не удалось получить список игроков."
 
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Команда проверки статуса сервера
+async def status(update: Update, context: CallbackContext):
     log_user(update)
-    try:
-        status_msg = check_server_status()
-        await update.effective_message.reply_text(status_msg, parse_mode='HTML')
-    except Exception as e:
-        logger.error(f"Ошибка при отправке статуса: {e}")
+    await update.message.reply_text(check_server_status())
 
-async def players(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Команда получения списка игроков
+async def players(update: Update, context: CallbackContext):
     log_user(update)
-    try:
-        players_msg = get_player_list()
-        await update.effective_message.reply_text(players_msg, parse_mode='HTML')
-    except Exception as e:
-        logger.error(f"Ошибка при отправке списка игроков: {e}")
+    await update.message.reply_text(get_player_list())
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Команда старт
+async def start_command(update: Update, context: CallbackContext):
     log_user(update)
-    try:
-        start_message = (
-            "=================================================\n"
-            "🟧 Привет! Я помощник Майнкрафт сервера TheFirym.\n\n"
-            "<b>Доступные команды:</b>\n"
-            "/status - Проверить статус сервера\n"
-            "/online - Список игроков онлайн\n"
-            "================================================="
-        )
-        await update.effective_message.reply_text(start_message, parse_mode='HTML')
-    except Exception as e:
-        logger.error(f"Ошибка при отправке сообщения /start: {e}")
+    start_message = (
+        "=================================================\n"
+        "🟧 Привет! Я помощник Майнкрафт сервера TheFirym.\n\n"
+        "<b>Доступные команды:</b>\n"
+        "/status - Проверить статус сервера\n"
+        "/online - Список игроков онлайн\n"
+        "================================================="
+    )
+    await update.message.reply_text(start_message, parse_mode='HTML')
 
-def main():
-    # Создание цикла событий asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+# Создание приложения бота
+app = Application.builder().token(TOKEN).build()
 
-    # Создание приложения бота
-    application = Application.builder().token(TOKEN).build()
-
-    # Добавление команд
-    application.add_handler(CommandHandler("status", status))
-    application.add_handler(CommandHandler("online", players))
-    application.add_handler(CommandHandler("start", start_command))
-
-    logger.info("Запуск приложения бота...")
-
-    try:
-        # Запуск бота в режиме polling ВНУТРИ текущего цикла
-        # drop_pending_updates=True сбрасывает накопленные обновления при старте
-        loop.run_until_complete(application.run_polling(drop_pending_updates=True, allowed_updates=None))
-    except KeyboardInterrupt:
-        logger.info("Получен сигнал KeyboardInterrupt, остановка бота...")
-    finally:
-        # Корректное закрытие цикла
-        logger.info("Закрытие цикла событий...")
-        loop.close()
-        logger.info("Цикл событий закрыт.")
+# Добавление команд
+app.add_handler(CommandHandler("status", status))
+app.add_handler(CommandHandler("online", players))
+app.add_handler(CommandHandler("start", start_command))
 
 if __name__ == "__main__":
-    # Запуск основной функции
-    main()
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass  # uvloop не установлен
+
+    logger.info("Запуск бота...")
+
+    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
+    while True:
+        try:
+            # drop_pending_updates=True сбрасывает накопленные обновления при старте
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Ошибка в polling: {e}")
+            # Если произошла ошибка, делаем паузу перед перезапуском
+            time.sleep(10)
