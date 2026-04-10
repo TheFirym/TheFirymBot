@@ -4,76 +4,102 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 import requests
 import asyncio
 import resource
+import time
 
-# Установим лимит памяти в 200 МБ
-try:
-    resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
-except (ValueError, OSError):
-    pass
+# Установим лимит памяти в 200 МБ (можно изменить)
+resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
 
+# Настройки
 TOKEN = "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
 SERVER_IP = "213.152.43.73"
 SERVER_PORT = 25620
 
+# Настройка логирования
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger()
 
+# Функция для логирования пользователей
 def log_user(update: Update):
     if update.message:
         user = update.message.from_user
-        username = user.username or user.first_name
+        username = user.username if user.username else user.first_name
         logger.info(f"Команда от {username}: {update.message.text}")
 
+# Проверка статуса сервера
 def check_server_status():
     try:
         response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
         if data.get('online'):
-            info = f"Игроков: {data['players']['online']}/{data['players']['max']}"
-            return f"=================================================\n🟧 {info}\n================================================="
-        return "Сервер оффлайн."
+            player_info = f"<b>Игроков:</b> {data['players']['online']}/{data['players']['max']}"
+            message = f"=================================================\n🟧 {player_info}\n================================================="
+            return message
+        else:
+            return "Сервер оффлайн."
     except Exception as e:
-        logger.error(f"Ошибка статуса: {e}")
-        return "Не удалось получить данные."
+        logger.error(f"Ошибка при получении статуса сервера: {e}")
+        return "Не удалось получить данные о сервере."
 
+# Получение списка игроков
 def get_player_list():
     try:
         response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
-        if data.get('online') and data['players'].get('online', 0) > 0:
-            players = ", ".join(data['players'].get('list', [])) or "Игроки скрыты"
-            return f"=================================================\n🟧 Игроки онлайн: {players}\n================================================="
-        return "=================================================\n🟧 Никто не играет.\n================================================="
+        if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
+            players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
+            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
+        else:
+            return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
     except Exception as e:
-        logger.error(f"Ошибка списка: {e}")
-        return "Не удалось получить список."
+        logger.error(f"Ошибка при получении списка игроков: {e}")
+        return "Не удалось получить список игроков."
 
+# Команда проверки статуса сервера
 async def status(update: Update, context: CallbackContext):
     log_user(update)
     await update.message.reply_text(check_server_status())
 
+# Команда получения списка игроков
 async def players(update: Update, context: CallbackContext):
     log_user(update)
     await update.message.reply_text(get_player_list())
 
+# Команда старт
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
-    msg = (
+    start_message = (
         "=================================================\n"
-        "🟧 Привет! Помощник TheFirym.\n\n"
-        "<b>Команды:</b>\n"
-        "/status - Статус сервера\n"
-        "/online - Онлайн игроки\n"
+        "🟧 Привет! Я помощник Майнкрафт сервера TheFirym.\n\n"
+        "<b>Доступные команды:</b>\n"
+        "/status - Проверить статус сервера\n"
+        "/online - Список игроков онлайн\n"
         "================================================="
     )
-    await update.message.reply_text(msg, parse_mode='HTML')
+    await update.message.reply_text(start_message, parse_mode='HTML')
 
-async def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("online", players))
-    app.add_handler(CommandHandler("start", start_command))
-    await app.run_polling(drop_pending_updates=True)
+# Создание приложения бота
+app = Application.builder().token(TOKEN).build()
+
+# Добавление команд
+app.add_handler(CommandHandler("status", status))
+app.add_handler(CommandHandler("online", players))
+app.add_handler(CommandHandler("start", start_command))
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass  # uvloop не установлен
+
+    logger.info("Запуск бота...")
+
+    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
+    while True:
+        try:
+            # drop_pending_updates=True сбрасывает накопленные обновления при старте
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Ошибка в polling: {e}")
+            # Если произошла ошибка, делаем паузу перед перезапуском
+            time.sleep(10)
