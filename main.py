@@ -31,7 +31,7 @@ def check_server_status():
         response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
         if data.get('online'):
-            player_info = f"Игроков: {data['players']['online']}/{data['players']['max']}"
+            player_info = f"<b>Игроков:</b> {data['players']['online']}/{data['players']['max']}"
             message = f"=================================================\n🟧 {player_info}\n================================================="
             return message
         else:
@@ -47,9 +47,9 @@ def get_player_list():
         data = response.json()
         if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
             players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
-            return f"=================================================\n🟧 Игроки онлайн: {players}\n================================================="
+            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
         else:
-            return "=================================================\n🟧 Никто не играет сейчас.\n================================================="
+            return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
     except Exception as e:
         logger.error(f"Ошибка при получении списка игроков: {e}")
         return "Не удалось получить список игроков."
@@ -81,14 +81,25 @@ async def start_command(update: Update, context: CallbackContext):
 app = Application.builder().token(TOKEN).build()
 
 # Добавление команд
-async def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("online", players))
-    app.add_handler(CommandHandler("start", start_command))
-    await app.run_polling(drop_pending_updates=True)
+app.add_handler(CommandHandler("status", status))
+app.add_handler(CommandHandler("online", players))
+app.add_handler(CommandHandler("start", start_command))
 
 if __name__ == "__main__":
-    import asyncio
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass  # uvloop не установлен
+
     logger.info("Запуск бота...")
-    asyncio.run(main())
+
+    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
+    while True:
+        try:
+            # drop_pending_updates=True сбрасывает накопленные обновления при старте
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Ошибка в polling: {e}")
+            # Если произошла ошибка, делаем паузу перед перезапуском
+            time.sleep(10)
