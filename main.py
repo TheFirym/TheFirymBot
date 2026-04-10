@@ -4,7 +4,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
 import asyncio
 # import resource # Удалено
-# import time # Не используется в новой версии
+# import time # Удалено
+# import uvloop # Удалено
 
 # --- Настройки ---
 TOKEN = "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
@@ -82,8 +83,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(status_msg, parse_mode='HTML')
     except Exception as e:
         logger.error(f"Ошибка при отправке статуса: {e}")
-        # Опционально: отправить пользователю сообщение об ошибке
-        # await update.effective_message.reply_text("Произошла ошибка при обработке запроса.")
 
 async def players(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_user(update)
@@ -92,7 +91,6 @@ async def players(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(players_msg, parse_mode='HTML')
     except Exception as e:
         logger.error(f"Ошибка при отправке списка игроков: {e}")
-        # await update.effective_message.reply_text("Произошла ошибка при обработке запроса.")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_user(update)
@@ -109,8 +107,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Ошибка при отправке сообщения /start: {e}")
 
-# --- Основная асинхронная функция ---
-async def main():
+def main():
+    # Создание цикла событий asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     # Создание приложения бота
     application = Application.builder().token(TOKEN).build()
 
@@ -121,25 +122,18 @@ async def main():
 
     logger.info("Запуск приложения бота...")
 
-    # Запуск бота в режиме polling
-    # drop_pending_updates=True сбрасывает накопленные обновления при старте
-    # Эта строка блокирует выполнение до тех пор, пока бот не будет остановлен
-    await application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
-    logger.info("Приложение бота остановлено.")
-
+    try:
+        # Запуск бота в режиме polling ВНУТРИ текущего цикла
+        # drop_pending_updates=True сбрасывает накопленные обновления при старте
+        loop.run_until_complete(application.run_polling(drop_pending_updates=True, allowed_updates=None))
+    except KeyboardInterrupt:
+        logger.info("Получен сигнал KeyboardInterrupt, остановка бота...")
+    finally:
+        # Корректное закрытие цикла
+        logger.info("Закрытие цикла событий...")
+        loop.close()
+        logger.info("Цикл событий закрыт.")
 
 if __name__ == "__main__":
-    # Настройка asyncio event loop
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        logger.info("uvloop установлен и используется.")
-    except ImportError:
-        logger.info("uvloop не установлен, используется стандартный asyncio loop.")
-
-    # Запуск основной асинхронной функции
-    # asyncio.run создаёт новый цикл, запускает main(), и закрывает цикл при её завершении.
-    # Если main() завершится (например, из-за исключения в run_polling), цикл закроется корректно.
-    # В нормальной ситуации main() не завершается, потому что run_polling() работает вечно.
-    asyncio.run(main())
-    logger.info("Цикл событий завершён.")
+    # Запуск основной функции
+    main()
