@@ -81,11 +81,11 @@ async def start_command(update: Update, context: CallbackContext):
 app = Application.builder().token(TOKEN).build()
 
 # Добавление команд
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("online", players))
-app.add_handler(CommandHandler("start", start_command))
-
 async def main():
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("online", players))
+    app.add_handler(CommandHandler("start", start_command))
     await app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
