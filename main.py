@@ -31,7 +31,9 @@ def check_server_status():
         response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
         data = response.json()
         if data.get('online'):
-            return f"Сервер онлайн! Игроков: {data['players']['online']}/{data['players']['max']}"
+            player_info = f"<b>Игроков:</b> {data['players']['online']}/{data['players']['max']}"
+            message = f"=================================================\n🟧 {player_info}\n================================================="
+            return message
         else:
             return "Сервер оффлайн."
     except Exception as e:
@@ -45,9 +47,9 @@ def get_player_list():
         data = response.json()
         if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
             players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
-            return f"Огузки онлайн: {players}"
+            return f"=================================================\n🟧 <b>Игроки онлайн:</b> {players}\n================================================="
         else:
-            return "Никто не играет сейчас."
+            return "=================================================\n🟧 <b>Никто не играет сейчас.</b>\n================================================="
     except Exception as e:
         logger.error(f"Ошибка при получении списка игроков: {e}")
         return "Не удалось получить список игроков."
@@ -66,17 +68,14 @@ async def players(update: Update, context: CallbackContext):
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
     start_message = (
-        "Ку! Я помощник майнкрафт сервера TheFirym\n\n"
-        "Доступные команды:\n"
+        "=================================================\n"
+        "🟧 Привет! Я помощник Майнкрафт сервера TheFirym.\n\n"
+        "<b>Доступные команды:</b>\n"
         "/status - Проверить статус сервера\n"
         "/online - Список игроков онлайн\n"
-        "/players - Состав сервера\n"
-        "/ip - Показать IP сервера\n"
-        "/version - Показать версию сервера\n"
-        "/join - Присоединиться к нашему серверу Minecraft\n"
-        "/rules - Правила сервера"
+        "================================================="
     )
-    await update.message.reply_text(start_message)
+    await update.message.reply_text(start_message, parse_mode='HTML')
 
 # Создание приложения бота
 app = Application.builder().token(TOKEN).build()
