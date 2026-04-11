@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 import aiohttp  # ✅ Асинхронные запросы
 
 # Настройки
-TOKEN = os.getenv("BOT_TOKEN", "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic")  # ✅ Токен из ENV
+TOKEN = "BOT_TOKEN", "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
 SERVER_IP = "213.152.43.73"
 SERVER_PORT = 25620
 API_URL = f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}"
