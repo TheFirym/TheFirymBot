@@ -144,41 +144,21 @@ app.add_handler(CommandHandler("start", start_command))
 app.add_handler(CommandHandler("join", join))
 app.add_handler(CommandHandler("rules", rules))
 
-# ✅ Добавление команд (исправлена ошибка: /players → staff)
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("online", players))
-app.add_handler(CommandHandler("players", players))  # список игроков
-app.add_handler(CommandHandler("staff", staff))       # ✅ отдельная команда для стаффа
-app.add_handler(CommandHandler("ip", server_ip))
-app.add_handler(CommandHandler("version", server_version))
-app.add_handler(CommandHandler("start", start_command))
-app.add_handler(CommandHandler("join", join))
-app.add_handler(CommandHandler("rules", rules))
-
-# ✅ Глобальный обработчик ошибок
-async def error_handler(update: object, context: CallbackContext) -> None:
-    logger.error(f"❌ Ошибка: {context.error}", exc_info=context.error)
-
-app.add_error_handler(error_handler)
-
 if __name__ == "__main__":
-    # Оптимизация event loop (опционально)
     try:
         import uvloop
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        logger.info("🚀 uvloop активирован")
     except ImportError:
-        pass
+        pass  # uvloop не установлен
 
-    logger.info("🤖 Запуск бота...")
-    
-    # ✅ Правильный запуск — БЕЗ while True!
-    # run_polling() сам обрабатывает ошибки сети и перезапускается
-    try:
-        app.run_polling(drop_pending_updates=True)
-    except KeyboardInterrupt:
-        logger.info("👋 Бот остановлен пользователем")
-    except Exception as e:
-        logger.critical(f"💥 Критическая ошибка: {e}", exc_info=True)
-        # Не используйте time.sleep() здесь — это блокирует event loop!
-        # Для авто-рестарта используйте systemd / docker / supervisord
+    logger.info("Запуск бота...")
+
+    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
+    while True:
+        try:
+            # drop_pending_updates=True сбрасывает накопленные обновления при старте
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Ошибка в polling: {e}")
+            # Если произошла ошибка, делаем паузу перед перезапуском
+            time.sleep(10)
