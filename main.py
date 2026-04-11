@@ -1,164 +1,158 @@
 import logging
+import os
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
-import requests
-import asyncio
-import resource
-import time
-
-# Установим лимит памяти в 200 МБ (можно изменить)
-resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
+import aiohttp  # ✅ Асинхронные запросы
 
 # Настройки
-TOKEN = "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic"
+TOKEN = os.getenv("BOT_TOKEN", "8534820807:AAGVIIiUghHGu_PX_YiV3FyzJhGquHqU5Ic")  # ✅ Токен из ENV
 SERVER_IP = "213.152.43.73"
 SERVER_PORT = 25620
+API_URL = f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}"
 
-# Настройка логирования
+# Логирование
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
-# Функция для логирования пользователей
+# ✅ Кэш для данных сервера (на 60 секунд)
+_server_cache = {"data": None, "timestamp": 0}
+CACHE_TTL = 60
+
 def log_user(update: Update):
-    if update.message:
-        user = update.message.from_user
-        username = user.username if user.username else user.first_name
-        logger.info(f"Команда от {username}: {update.message.text}")
+    if update.effective_user:
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        logger.info(f"Команда от {username}: {update.message.text if update.message else 'No message'}")
 
-# Проверка статуса сервера
-def check_server_status():
+# ✅ Асинхронный запрос с кэшированием
+async def fetch_server_data():
+    import time
+    now = time.time()
+    if _server_cache["data"] and (now - _server_cache["timestamp"]) < CACHE_TTL:
+        return _server_cache["data"]
+    
     try:
-        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
-        data = response.json()
-        if data.get('online'):
-            return f"Сервер онлайн! Игроков: {data['players']['online']}/{data['players']['max']}"
-        else:
-            return "Сервер оффлайн."
+        async with aiohttp.ClientSession() as session:
+            async with session.get(API_URL, timeout=10) as resp:
+                data = await resp.json()
+                _server_cache["data"] = data
+                _server_cache["timestamp"] = now
+                return data
     except Exception as e:
-        logger.error(f"Ошибка при получении статуса сервера: {e}")
-        return "Не удалось получить данные о сервере."
+        logger.error(f"Ошибка API: {e}")
+        return None
 
-# Получение списка игроков
-def get_player_list():
-    try:
-        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
-        data = response.json()
-        if data.get('online') and 'players' in data and data['players'].get('online', 0) > 0:
-            players = ", ".join(data['players'].get('list', [])) if 'list' in data['players'] else "Игроки скрыты"
-            return f"Огузки онлайн: {players}"
-        else:
-            return "Никто не играет сейчас."
-    except Exception as e:
-        logger.error(f"Ошибка при получении списка игроков: {e}")
-        return "Не удалось получить список игроков."
-
-# Получение версии сервера
-def get_server_version():
-    try:
-        response = requests.get(f"https://api.mcsrvstat.us/2/{SERVER_IP}:{SERVER_PORT}")
-        data = response.json()
-        if data.get('online'):
-            return f"Версия сервера: {data.get('version', 'неизвестно')}"
-        else:
-            return "Не удалось получить версию сервера."
-    except Exception as e:
-        logger.error(f"Ошибка при получении версии сервера: {e}")
-        return "Не удалось получить версию сервера."
-
-# Команда проверки статуса сервера
+# ✅ Команды
 async def status(update: Update, context: CallbackContext):
     log_user(update)
-    await update.message.reply_text(check_server_status())
+    data = await fetch_server_data()
+    if data and data.get('online'):
+        text = f"✅ Сервер онлайн! Игроков: {data['players']['online']}/{data['players']['max']}"
+    elif data:
+        text = "❌ Сервер оффлайн."
+    else:
+        text = "⚠️ Не удалось получить данные."
+    await update.message.reply_text(text)
 
-# Команда получения списка игроков
 async def players(update: Update, context: CallbackContext):
     log_user(update)
-    await update.message.reply_text(get_player_list())
+    data = await fetch_server_data()
+    if data and data.get('online') and data['players'].get('online', 0) > 0:
+        players_list = data['players'].get('list', [])
+        text = f"🎮 Онлайн ({len(players_list)}): " + (", ".join(players_list) if players_list else "Игроки скрыты")
+    else:
+        text = "😴 Никто не играет сейчас."
+    await update.message.reply_text(text)
 
-# Команда получения версии сервера
 async def server_version(update: Update, context: CallbackContext):
     log_user(update)
-    await update.message.reply_text(get_server_version())
+    data = await fetch_server_data()
+    if data and data.get('online'):
+        text = f"📦 Версия: {data.get('version', 'неизвестно')}"
+    else:
+        text = "⚠️ Не удалось получить версию."
+    await update.message.reply_text(text)
 
-# Команда старт
 async def start_command(update: Update, context: CallbackContext):
     log_user(update)
-    start_message = (
-        "Ку! Я помощник майнкрафт сервера TheFirym\n\n"
-        "Доступные команды:\n"
-        "/status - Проверить статус сервера\n"
-        "/online - Список игроков онлайн\n"
-        "/players - Состав сервера\n"
-        "/ip - Показать IP сервера\n"
-        "/version - Показать версию сервера\n"
-        "/join - Присоединиться к нашему серверу Minecraft\n"
-        "/rules - Правила сервера"
+    await update.message.reply_text(
+        "Ку! Я помощник сервера TheFirym ⛏️\n\n"
+        "Команды:\n"
+        "/status — Статус сервера\n"
+        "/online — Игроки онлайн\n"
+        "/staff — Админы и модераторы\n"
+        "/ip — IP сервера\n"
+        "/version — Версия сервера\n"
+        "/join — Как присоединиться\n"
+        "/rules — Правила"
     )
-    await update.message.reply_text(start_message)
 
-# Команда получения списка админов и модераторов
 async def staff(update: Update, context: CallbackContext):
     log_user(update)
     staff_list = {
-        "Админ": ["Cymniki(@CKirilll)"],
-         "Не Модер": ["KILLAH"]
-       }
+        "👑 Админ": ["Cymniki (@CKirilll)"],
+        "🛡️ Модер": ["KILLAH"]
+    }
     response = "\n".join([f"{role}: {', '.join(names)}" for role, names in staff_list.items()])
-    await update.message.reply_text(f"Состав сервера:\n{response}")
+    await update.message.reply_text(f"👥 Состав команды:\n{response}")
 
-# Команда получения IP сервера
 async def server_ip(update: Update, context: CallbackContext):
     log_user(update)
-    await update.message.reply_text("IP сервера: thefirym.gomc.fun")
+    await update.message.reply_text("🌐 IP: `thefirym.gomc.fun`", parse_mode='Markdown')
 
-# Команда для присоединения
 async def join(update: Update, context: CallbackContext):
     log_user(update)
-    join_message = "КАНАЛ ДЛЯ ЗАЯВКИ: https://t.me/+CpN-PsMRvuExMzRi"
-    await update.message.reply_text(join_message)
+    await update.message.reply_text(
+        "📝 Подать заявку: https://t.me/+CpN-PsMRvuExMzRi",
+        disable_web_page_preview=True
+    )
 
-# Команда для правил
 async def rules(update: Update, context: CallbackContext):
     log_user(update)
-    rules_message = (
-        "Правила сервера:\n"
+    await update.message.reply_text(
+        "📜 Правила сервера:\n"
         "1. Не ломать чужие постройки\n"
         "2. Не грабить игроков\n"
-        "3. Не убивать домашних животных, которые принадлежат не вам\n"
-        "4. Запрещается быть без мода Emotecraft и Simple Voice Chat 💬\n"
-        "5. Уважать остальных участников сервера\n"
-        "6. У каждого игрока должен быть свой скин"
+        "3. Не убивать чужих питомцев\n"
+        "4. Обязательны моды: Emotecraft + Simple Voice Chat 💬\n"
+        "5. Уважать других игроков\n"
+        "6. Уникальный скин обязателен"
     )
-    await update.message.reply_text(rules_message)
 
-# Создание приложения бота
-app = Application.builder().token(TOKEN).build()
+# ✅ Запуск
+def main():
+    # ✅ Безопасная установка лимита памяти (только Unix)
+    try:
+        import resource
+        resource.setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, 200 * 1024 * 1024))
+    except (ImportError, ValueError, OSError) as e:
+        logger.warning(f"Не удалось установить лимит памяти: {e}")
 
-# Добавление команд
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("online", players))
-app.add_handler(CommandHandler("players", staff))
-app.add_handler(CommandHandler("ip", server_ip))
-app.add_handler(CommandHandler("version", server_version))
-app.add_handler(CommandHandler("start", start_command))
-app.add_handler(CommandHandler("join", join))
-app.add_handler(CommandHandler("rules", rules))
+    app = Application.builder().token(TOKEN).build()
+    
+    # ✅ Исправленные хэндлеры
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("online", players))    # список игроков
+    app.add_handler(CommandHandler("players", players))    # дублирует /online (или уберите)
+    app.add_handler(CommandHandler("staff", staff))        # ✅ отдельная команда для стаффа
+    app.add_handler(CommandHandler("ip", server_ip))
+    app.add_handler(CommandHandler("version", server_version))
+    app.add_handler(CommandHandler("join", join))
+    app.add_handler(CommandHandler("rules", rules))
+
+    logger.info("🤖 Бот запущен...")
+    
+    # ✅ Без while True — run_polling() сам обрабатывает перезапуски
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
+    # ✅ Оптимизация event loop
     try:
         import uvloop
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        logger.info("🚀 uvloop активирован")
     except ImportError:
-        pass  # uvloop не установлен
-
-    logger.info("Запуск бота...")
-
-    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
-    while True:
-        try:
-            # drop_pending_updates=True сбрасывает накопленные обновления при старте
-            app.run_polling(drop_pending_updates=True)
-        except Exception as e:
-            logger.error(f"Ошибка в polling: {e}")
-            # Если произошла ошибка, делаем паузу перед перезапуском
-            time.sleep(10)
+        pass
+    main()
