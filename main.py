@@ -143,22 +143,3 @@ app.add_handler(CommandHandler("version", server_version))
 app.add_handler(CommandHandler("start", start_command))
 app.add_handler(CommandHandler("join", join))
 app.add_handler(CommandHandler("rules", rules))
-
-if __name__ == "__main__":
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    except ImportError:
-        pass  # uvloop не установлен
-
-    logger.info("Запуск бота...")
-
-    # Используем бесконечный цикл, чтобы бот автоматически перезапускался при ошибках
-    while True:
-        try:
-            # drop_pending_updates=True сбрасывает накопленные обновления при старте
-            app.run_polling(drop_pending_updates=True)
-        except Exception as e:
-            logger.error(f"Ошибка в polling: {e}")
-            # Если произошла ошибка, делаем паузу перед перезапуском
-            time.sleep(10)
